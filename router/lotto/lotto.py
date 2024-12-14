@@ -4,8 +4,8 @@ from database import get_db
 
 import json
 
-from router.lotto.lotto_schema import Suggetion, Bug
-from models import LOTTOSUGGESTION
+from router.lotto.lotto_schema import Suggetion, Bug, BugImage
+from models import LOTTOSUGGESTION, LOTTOBUGREPORT, LOTTOBUGREPORTIMAGE
 
 from starlette import status
 from fastapi.responses import JSONResponse
@@ -45,24 +45,26 @@ def save_suggestion(suggestion:Suggetion, db: Session = Depends(get_db)):
 @router.post("/bug", description="버그 신고", tags=["로또앱"])
 async def save_bug(bug:str = Form(...), step:str = Form(...), images: List[UploadFile] = File(default=[]), db: Session = Depends(get_db)):
     try:
-        file_details = []
-        # suggestionInfo = LOTTOSUGGESTION(SUGGESTION = suggestion.suggestion, ADDITIONAL = suggestion.additional)
-        # db.add(suggestionInfo)
-        # db.commit()
-        # JSON 문자열을 Python dict로 변환
+        new_bug = LOTTOBUGREPORT(CONTENT=bug, STEP=step)
+        db.add(new_bug)
+        db.commit()
         
-        for image in images:
-            # 예시로 파일명을 출력
-            print(f"Uploaded image: {image.filename}")
-            print(image.size)
-            file_path = os.path.join(UPLOAD_FOLDER, image.filename)
-            # 파일 저장
-            with open(file_path, "wb") as buffer:
-                buffer.write(await image.read())
-            file_details.append(image.filename)
-        print(bug)
-        print(step)
-        print(file_details)
+        if len(images) > 0:
+            # 디버그 코드
+            #file_details = []
+            for idx, image in enumerate(images):
+                # 예시로 파일명을 출력
+                file_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                # 파일 저장
+                with open(file_path, "wb") as buffer:
+                    buffer.write(await image.read())
+                # 디버그 코드
+                #file_details.append(image.filename)
+
+                # db에 파일 네임 저장
+                new_image = LOTTOBUGREPORTIMAGE(BUGREPORTID=new_bug.ID, IMAGEINDEX=idx, FILENAME=image.filename, )
+                db.add(new_image)
+            db.commit()
         return JSONResponse(status_code=status.HTTP_201_CREATED, content="성공")
     except Exception as e:
         logging.error("User addition failed:", str(e))

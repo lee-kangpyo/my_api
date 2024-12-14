@@ -20,3 +20,25 @@ class LOTTOSUGGESTION(Base):
     SUGGESTION = Column(String(100), nullable=False)
     ADDITIONAL = Column(String(50), nullable=False)
     CREATEDATE = Column(DateTime, nullable=False, server_default=text("curdate()"))
+
+
+class LOTTOBUGREPORT(Base):
+    __tablename__ = 'LOTTO_BUGREPORT'
+    __table_args__ = {'comment': '버그 신고 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    CONTENT = Column(String(100), nullable=False)
+    STEP = Column(String(100), nullable=False)
+    CREATEDATE = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+
+
+class LOTTOBUGREPORTIMAGE(Base):
+    __tablename__ = 'LOTTO_BUGREPORT_IMAGE'
+    __table_args__ = {'comment': '버그 리포트 이미지'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    BUGREPORTID = Column(ForeignKey('LOTTO_BUGREPORT.ID'), nullable=False, index=True)
+    IMAGEINDEX = Column(INTEGER(11), nullable=False)
+    FILENAME = Column(String(255), nullable=False)
+
+    LOTTO_BUGREPORT = relationship('LOTTOBUGREPORT')

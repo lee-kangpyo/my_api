@@ -20,11 +20,12 @@ log = logging.getLogger("gunicorn.error")
 log.addHandler(log_handler)
 log.setLevel(logging.INFO)
 
-bind = "0.0.0.0:9513"
+bind = "0.0.0.0:80"
 workers = 2
 worker_class = "uvicorn.workers.UvicornWorker"
 reload = True
 loglevel = "info"
+forwarded_allow_ips = "*"
 
 
 
