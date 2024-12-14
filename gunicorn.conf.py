@@ -5,9 +5,9 @@ import logging.handlers
 
 if not os.path.exists("/app/log"):
     os.makedirs("/app/log")
-    os.makedirs("/app/log/apiServer")
+    #os.makedirs("/app/log/apiServer")
 
-log_file = f"/app/log/apiServer/access.log"
+log_file = f"/app/log/access.log"
 
 # Configure the logging handler to use TimedRotatingFileHandler
 log_handler = logging.handlers.TimedRotatingFileHandler(
