@@ -29,6 +29,7 @@ elif mode == "DEV":
 @app.get("/version", description="버전.", tags=["버전"])
 async def root():
     return [
+        {"version": "1.0.1", "detail":"로또 리포트 및 버그신고 기능 추가 및 nginx 내부 아이피 로깅 되는 이슈 픽스스"},
         {"version": "1.0.0.0", "detail":"fastApi 시작"},
     ]
 
