@@ -13,7 +13,7 @@ from router.lotto import lotto
 load_dotenv()
 mode = os.getenv("MODE")
 
-app = FastAPI(docs_url="/api/docs", redoc_url=None)
+app = FastAPI(docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
 if mode == "PROD":
     gunicorn_error_logger = logging.getLogger("gunicorn.error")
@@ -26,9 +26,10 @@ if mode == "PROD":
 elif mode == "DEV":
     fastapi_logger.setLevel(logging.DEBUG)
 
-@app.get("/version", description="버전.", tags=["버전"])
+@app.get("/api/version", description="버전.", tags=["버전"])
 async def root():
     return [
+        {"version": "1.0.2", "detail":"swagger 엔드포인트 수정"},
         {"version": "1.0.1", "detail":"로또 리포트 및 버그신고 기능 추가 및 nginx 내부 아이피 로깅 되는 이슈 픽스스"},
         {"version": "1.0.0.0", "detail":"fastApi 시작"},
     ]
