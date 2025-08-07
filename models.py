@@ -1,5 +1,5 @@
 
-from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Table, Text, text, Enum
+from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Text, text, Enum, Integer, Boolean
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -12,6 +12,7 @@ warnings.filterwarnings('ignore', category=SAWarning, message="^Implicitly combi
 Base = declarative_base()
 metadata = Base.metadata
 
+# ===== 기존 로또 앱 모델들 =====
 class LOTTOSUGGESTION(Base):
     __tablename__ = 'LOTTO_SUGGESTION'
     __table_args__ = {'comment': '로또 앱 유저 제안하기 테이블'}
@@ -42,3 +43,73 @@ class LOTTOBUGREPORTIMAGE(Base):
     FILENAME = Column(String(255), nullable=False)
 
     LOTTO_BUGREPORT = relationship('LOTTOBUGREPORT')
+
+# ===== SmallStep 앱 모델들 =====
+class SMALLSTEP_USERS(Base):
+    __tablename__ = 'SMALLSTEP_USERS'
+    __table_args__ = {'comment': 'SmallStep 사용자 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    NAME = Column(String(100), nullable=False)
+    EMAIL = Column(String(100), nullable=True)
+    LEVEL = Column(INTEGER(11), default=1)
+    CONSECUTIVE_DAYS = Column(INTEGER(11), default=0)
+    TOTAL_STEPS = Column(INTEGER(11), default=0)
+    COMPLETED_STEPS = Column(INTEGER(11), default=0)
+    CURRENT_GOAL = Column(String(100), nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+    UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
+
+
+class SMALLSTEP_GOALS(Base):
+    __tablename__ = 'SMALLSTEP_GOALS'
+    __table_args__ = {'comment': 'SmallStep 목표 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    USER_ID = Column(ForeignKey('SMALLSTEP_USERS.ID'), nullable=False, index=True)
+    TITLE = Column(String(200), nullable=False)
+    DESCRIPTION = Column(Text, nullable=True)
+    CATEGORY = Column(String(50), nullable=True)
+    STATUS = Column(Enum('active', 'completed', 'paused'), default='active')
+    PROGRESS = Column(INTEGER(11), default=0)
+    TARGET_DATE = Column(DateTime, nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+    UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
+
+    SMALLSTEP_USERS = relationship('SMALLSTEP_USERS')
+
+
+class SMALLSTEP_ACTIVITIES(Base):
+    __tablename__ = 'SMALLSTEP_ACTIVITIES'
+    __table_args__ = {'comment': 'SmallStep 활동 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    GOAL_ID = Column(ForeignKey('SMALLSTEP_GOALS.ID'), nullable=False, index=True)
+    WEEK = Column(INTEGER(11), nullable=False)
+    DAY = Column(INTEGER(11), nullable=False)
+    PHASE_LINK = Column(INTEGER(11), nullable=False)
+    TITLE = Column(String(200), nullable=False)
+    DESCRIPTION = Column(Text, nullable=True)
+    ACTIVITY_TYPE = Column(String(50), nullable=True)
+    IS_COMPLETED = Column(Boolean, default=False)
+    COMPLETED_AT = Column(DateTime, nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+
+    SMALLSTEP_GOALS = relationship('SMALLSTEP_GOALS')
+
+
+class SMALLSTEP_GAME_DATA(Base):
+    __tablename__ = 'SMALLSTEP_GAME_DATA'
+    __table_args__ = {'comment': 'SmallStep 게임 데이터 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    USER_ID = Column(ForeignKey('SMALLSTEP_USERS.ID'), nullable=False, index=True)
+    LEVEL = Column(INTEGER(11), default=1)
+    EXPERIENCE = Column(INTEGER(11), default=0)
+    CURRENT_STREAK = Column(INTEGER(11), default=0)
+    LONGEST_STREAK = Column(INTEGER(11), default=0)
+    LAST_COMPLETED_DATE = Column(DateTime, nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+    UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
+
+    SMALLSTEP_USERS = relationship('SMALLSTEP_USERS')
