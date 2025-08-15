@@ -27,3 +27,4 @@ firebase-credentials.json
 .*.sw?
 .cache
 .env
+/ssl/
