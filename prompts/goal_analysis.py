@@ -35,6 +35,9 @@ def create_goal_analysis_prompt(goal: str, duration_weeks: int = None, weekly_fr
     * 모든 조건부 로직(기간, 횟수)은 이 `schedule` 부분에 적용됩니다.
 4.  **활동 유형(activity_type)의 지능적 정의:** 목표의 성격(운동/학습 등)에 맞게 `schedule` 내의 활동 유형을 지능적으로 정의합니다.
 5.  **JSON 형식 준수:** 최종 결과물은 다른 설명 없이, 아래 [출력 형식]을 엄격히 준수하는 단일 JSON 객체여야 합니다.
+6.  **주석 제거:** 주석(//)이나 설명을 JSON 안에 넣지 마세요
+7.  **한글 사용:** 한글을 사용하여 출력합니다.
+
 
 ---
 

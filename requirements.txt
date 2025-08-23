@@ -41,3 +41,9 @@ typing_extensions==4.12.2
 uritemplate==4.2.0
 urllib3==2.5.0
 uvicorn==0.32.1
+
+# GGUF + Kiwi packages (lightweight + keyword extraction)
+llama-cpp-python>=0.2.0
+numpy>=1.24.0
+huggingface-hub>=0.20.0
+kiwipiepy>=0.15.0

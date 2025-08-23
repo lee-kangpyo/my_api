@@ -28,3 +28,4 @@ firebase-credentials.json
 .cache
 .env
 /ssl/
+/models/

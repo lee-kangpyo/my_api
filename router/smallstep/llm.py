@@ -84,7 +84,16 @@ def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallst
             import json
             content = response.text.strip()
             
-            # 디버깅을 위해 실제 응답 로그 출력
+            # 상세한 디버깅 정보 출력
+            print("=" * 80)
+            print("🔍 LLM 원본 응답 디버깅")
+            print("=" * 80)
+            print(f"응답 길이: {len(content)} 문자")
+            print(f"응답 내용:\n{content}")
+            print("=" * 80)
+            
+            # 로그에도 기록
+            logger.info(f"LLM Response Length: {len(content)}")
             logger.info(f"LLM Response: {content}")
             
             # JSON 부분만 추출 (```json ... ``` 형태일 경우)
@@ -92,22 +101,75 @@ def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallst
                 start = content.find("```json") + 7
                 end = content.find("```", start)
                 json_str = content[start:end].strip()
+                print(f"📋 JSON 블록 추출 (```json): {start}~{end}")
             elif "```" in content:
                 # ```json이 없지만 ```가 있는 경우
                 start = content.find("```") + 3
                 end = content.find("```", start)
                 json_str = content[start:end].strip()
+                print(f"📋 JSON 블록 추출 (```): {start}~{end}")
             else:
                 json_str = content
+                print("📋 전체 응답을 JSON으로 사용")
+            
+            print(f"추출된 JSON 문자열 길이: {len(json_str)}")
+            print(f"추출된 JSON:\n{json_str}")
+            print("=" * 80)
             
             # 디버깅을 위해 추출된 JSON 로그 출력
+            logger.info(f"Extracted JSON Length: {len(json_str)}")
             logger.info(f"Extracted JSON: {json_str}")
             
             # JSON 문자열 정리 (불필요한 문자 제거)
+            original_json_str = json_str
             json_str = json_str.replace('\n', ' ').replace('\r', ' ').strip()
             
-            # JSON 파싱
-            result = json.loads(json_str)
+            # JSON 주석 제거 (// 로 시작하는 라인)
+            import re
+            json_str = re.sub(r'\s*//.*?(?=\n|$)', '', json_str)
+            
+            # 중복된 쉼표 제거
+            json_str = re.sub(r',\s*,', ',', json_str)
+            
+            # 객체/배열 끝의 불필요한 쉼표 제거
+            json_str = re.sub(r',\s*}', '}', json_str)
+            json_str = re.sub(r',\s*]', ']', json_str)
+            
+            print(f"정리된 JSON 문자열 길이: {len(json_str)}")
+            print(f"정리된 JSON:\n{json_str}")
+            print("=" * 80)
+            
+            # JSON 파싱 시도
+            try:
+                result = json.loads(json_str)
+                print("✅ JSON 파싱 성공!")
+                print(f"파싱된 결과 타입: {type(result)}")
+                print(f"roadmap 키 존재: {'roadmap' in result}")
+                print(f"schedule 키 존재: {'schedule' in result}")
+                if 'roadmap' in result:
+                    print(f"roadmap 항목 수: {len(result['roadmap'])}")
+                if 'schedule' in result:
+                    print(f"schedule 항목 수: {len(result['schedule'])}")
+                print("=" * 80)
+            except json.JSONDecodeError as json_error:
+                print(f"❌ JSON 파싱 실패: {str(json_error)}")
+                print(f"오류 위치: 라인 {json_error.lineno}, 컬럼 {json_error.colno}")
+                print(f"오류 문자: {json_error.pos}")
+                
+                # 오류 위치 주변 텍스트 출력
+                error_pos = json_error.pos
+                start_pos = max(0, error_pos - 50)
+                end_pos = min(len(json_str), error_pos + 50)
+                print(f"오류 주변 텍스트: ...{json_str[start_pos:end_pos]}...")
+                print("=" * 80)
+                
+                # 원본 JSON과 정리된 JSON 비교
+                print("🔍 원본 vs 정리된 JSON 비교:")
+                print(f"원본 길이: {len(original_json_str)}")
+                print(f"정리된 길이: {len(json_str)}")
+                print("=" * 80)
+                
+                raise json_error
             
             # Activity 스키마에 맞게 변환
             activities = []

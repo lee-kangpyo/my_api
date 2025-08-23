@@ -1,6 +1,6 @@
 
-from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Text, text, Enum, Integer, Boolean
-from sqlalchemy.dialects.mysql import BIGINT, INTEGER
+from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Text, text, Enum, Integer, Boolean, TIMESTAMP
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import warnings
@@ -113,3 +113,36 @@ class SMALLSTEP_GAME_DATA(Base):
     UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
 
     SMALLSTEP_USERS = relationship('SMALLSTEP_USERS')
+
+
+# ===== SmallStep AI 마스터 플래너 모델들 =====
+class SS_CACHED_PLANS(Base):
+    __tablename__ = 'SS_CACHED_PLANS'
+    __table_args__ = {'comment': 'AI 마스터 플래너 캐시된 계획 테이블'}
+
+    ID = Column(String(36), primary_key=True)
+    PLAN_VECTOR = Column('PLAN_VECTOR', nullable=False)  # VECTOR(1024) - SQLAlchemy에서 직접 지원하지 않음
+    PLAN_SPARSE_VECTOR = Column(LONGTEXT, nullable=True)  # JSON 데이터
+    PLAN_DATA = Column(LONGTEXT, nullable=False)  # JSON 데이터
+    SPARSE_KEYWORDS = Column(Text, nullable=True)
+    CREATED_AT = Column(TIMESTAMP, nullable=True, server_default=text("current_timestamp()"))
+
+
+class SS_GOAL_TEMPLATES(Base):
+    __tablename__ = 'SS_GOAL_TEMPLATES'
+    __table_args__ = {'comment': 'AI 마스터 플래너 목표 템플릿 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True, autoincrement=True)
+    CATEGORY = Column(String(100), nullable=False)
+    GOAL_TEXT = Column(String(255), nullable=False)
+    DISPLAY_ORDER = Column(INTEGER(11), nullable=True)
+
+
+class SS_USER_PLANS(Base):
+    __tablename__ = 'SS_USER_PLANS'
+    __table_args__ = {'comment': 'AI 마스터 플래너 사용자 계획 테이블'}
+
+    ID = Column(String(36), primary_key=True)
+    USER_ID = Column(String(36), nullable=False)
+    PLAN_DATA = Column(LONGTEXT, nullable=False)  # JSON 데이터
+    BACKED_UP_AT = Column(TIMESTAMP, nullable=True, server_default=text("current_timestamp()"))
