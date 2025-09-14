@@ -10,7 +10,6 @@ from typing import List, Dict, Any
 from kiwipiepy import Kiwi
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class KeywordExtractor(ABC):

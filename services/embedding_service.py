@@ -12,7 +12,6 @@ from .model_manager import model_manager
 from .keyword_extractor import KeywordExtractorFactory
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class EmbeddingService:

@@ -13,7 +13,6 @@ from kiwipiepy import Kiwi
 from huggingface_hub import hf_hub_download
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class ModelManager:
