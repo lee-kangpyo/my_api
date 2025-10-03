@@ -34,6 +34,7 @@ app = FastAPI(
 - `/api/smallstep/goals` - 목표 관리
 - `/api/smallstep/activities` - 활동 관리
 - `/api/smallstep/game-data` - 게임 데이터 관리
+- `/api/smallstep/search` - AI 검색 서비스 (벡터/키워드/하이브리드)
 
 ## 🎰 Lotto 앱
 로또 번호 추천 및 버그 신고 시스템

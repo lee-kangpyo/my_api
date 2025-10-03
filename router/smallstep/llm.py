@@ -21,9 +21,28 @@ router = APIRouter(
 # Google AI 설정
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    try:
+        genai.configure(api_key=GOOGLE_API_KEY)
+        # 최신 권장 모델 사용
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        logger.info("Google AI 모델 초기화 성공: gemini-2.0-flash-lite")
+    except Exception as e:
+        logger.error(f"gemini-2.0-flash-lite 실패: {e}")
+        # 대안 모델 시도
+        try:
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            logger.info("대안 모델 사용: gemini-2.0-flash")
+        except Exception as e2:
+            logger.error(f"gemini-2.0-flash도 실패: {e2}")
+            # 최후의 수단: 1.5 버전
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash-002')
+                logger.info("최후 모델 사용: gemini-1.5-flash-002")
+            except Exception as e3:
+                logger.error(f"모든 모델 실패: {e3}")
+                model = None
 else:
+    logger.warning("GOOGLE_API_KEY가 설정되지 않음")
     model = None
 
 from schemas.smallstep.llm import GoalAnalysisRequest, RoadmapPhase, GoalAnalysisResponse

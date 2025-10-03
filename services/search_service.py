@@ -34,7 +34,7 @@ class SearchService:
             logger.error(f"SmallStep 데이터베이스 세션 생성 실패: {e}")
             raise
     
-    def vector_similarity_search(self, query_vector: List[float], limit: int = 10) -> List[Dict[str, Any]]:
+    def _vector_similarity_search_internal(self, query_vector: List[float], limit: int = 10) -> List[Dict[str, Any]]:
         """
         벡터 유사도 검색 (Dense Search)
         
@@ -48,22 +48,23 @@ class SearchService:
         try:
             db = self.get_db_session()
             
+            # 벡터를 배열 형식으로 변환 (MariaDB VECTOR 타입)
+            vector_str = f"[{','.join(map(str, query_vector))}]"
+            
             # MariaDB VECTOR 검색 쿼리
             # VEC_DISTANCE: 벡터 간 거리 계산 (낮을수록 유사)
+            # VEC_FromText: 문자열을 VECTOR 타입으로 변환
             query = text("""
                 SELECT 
                     ID,
                     PLAN_DATA,
                     SPARSE_KEYWORDS,
-                    VEC_DISTANCE(PLAN_VECTOR, :query_vector) as vector_distance,
+                    VEC_DISTANCE(PLAN_VECTOR, VEC_FromText(:query_vector)) as vector_distance,
                     CREATED_AT
                 FROM SS_CACHED_PLANS 
                 ORDER BY vector_distance ASC
                 LIMIT :limit
             """)
-            
-            # 벡터를 문자열로 변환 (MariaDB VECTOR 형식)
-            vector_str = f"[{','.join(map(str, query_vector))}]"
             
             result = db.execute(query, {
                 'query_vector': vector_str,
@@ -73,7 +74,7 @@ class SearchService:
             results = []
             for row in result:
                 results.append({
-                    'plan_id': row.ID,
+                    'id': row.ID,
                     'plan_data': json.loads(row.PLAN_DATA) if row.PLAN_DATA else {},
                     'sparse_keywords': row.SPARSE_KEYWORDS,
                     'vector_distance': float(row.vector_distance),
@@ -129,10 +130,11 @@ class SearchService:
             results = []
             for row in result:
                 results.append({
-                    'plan_id': row.ID,
+                    'id': row.ID,
                     'plan_data': json.loads(row.PLAN_DATA) if row.PLAN_DATA else {},
                     'sparse_keywords': row.SPARSE_KEYWORDS,
                     'keyword_score': float(row.keyword_score),
+                    'keyword_relevance': float(row.keyword_score),  # API에서 사용하는 키
                     'created_at': row.CREATED_AT,
                     'search_type': 'keyword'
                 })
@@ -147,6 +149,144 @@ class SearchService:
             if 'db' in locals():
                 db.close()
     
+    def hybrid_search(self, query_text: str, limit: int = 10, db: Session = None) -> Dict[str, Any]:
+        """
+        하이브리드 검색 (벡터 + 키워드)
+        
+        Args:
+            query_text (str): 검색할 텍스트
+            limit (int): 반환할 최대 결과 수
+            db (Session): 데이터베이스 세션 (선택적)
+            
+        Returns:
+            Dict: 벡터 검색 결과와 키워드 검색 결과
+        """
+        try:
+            logger.info(f"하이브리드 검색 시작: '{query_text}'")
+            
+            # 데이터베이스 세션 가져오기
+            if db is None:
+                db = self.get_db_session()
+                should_close_db = True
+            else:
+                should_close_db = False
+            
+            # 임베딩 생성
+            hybrid_embedding = self.embedding_service.create_hybrid_embedding(query_text)
+            
+            results = {
+                'query': query_text,
+                'search_type': 'hybrid',
+                'vector_results': [],
+                'keyword_results': [],
+                'embedding_info': {
+                    'vector_dimension': len(hybrid_embedding['dense_vector']),
+                    'keywords_extracted': hybrid_embedding['sparse_data']['keywords'],
+                    'keyword_count': len(hybrid_embedding['sparse_data']['weights'])
+                }
+            }
+            
+            # 벡터 검색
+            dense_vector = hybrid_embedding['dense_vector']
+            if hasattr(dense_vector, 'tolist'):
+                dense_vector = dense_vector.tolist()
+            vector_results = self._vector_similarity_search_internal(dense_vector, limit)
+            results['vector_results'] = vector_results
+            
+            # 키워드 검색
+            keywords = hybrid_embedding['sparse_data']['keywords'].replace(', ', ' ')
+            keyword_results = self.keyword_match_search(keywords, limit)
+            results['keyword_results'] = keyword_results
+            
+            # 결과 요약
+            total_vector = len(results['vector_results'])
+            total_keyword = len(results['keyword_results'])
+            
+            logger.info(f"하이브리드 검색 완료 - 벡터: {total_vector}개, 키워드: {total_keyword}개")
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"하이브리드 검색 실패: {e}")
+            raise
+        finally:
+            if should_close_db and 'db' in locals():
+                db.close()
+
+    def keyword_search(self, query_text: str, limit: int = 10, db: Session = None) -> List[Dict[str, Any]]:
+        """
+        텍스트에서 키워드를 추출하여 검색
+        
+        Args:
+            query_text (str): 검색할 텍스트
+            limit (int): 반환할 최대 결과 수
+            db (Session): 데이터베이스 세션 (선택적)
+            
+        Returns:
+            List[Dict]: 검색 결과 리스트
+        """
+        try:
+            # 데이터베이스 세션 가져오기
+            if db is None:
+                db = self.get_db_session()
+                should_close_db = True
+            else:
+                should_close_db = False
+            
+            # 임베딩 생성
+            hybrid_embedding = self.embedding_service.create_hybrid_embedding(query_text)
+            keywords = hybrid_embedding['sparse_data']['keywords'].replace(', ', ' ')
+            
+            # 키워드 검색 실행
+            results = self.keyword_match_search(keywords, limit)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"키워드 검색 실패: {e}")
+            raise
+        finally:
+            if should_close_db and 'db' in locals():
+                db.close()
+
+    def vector_similarity_search(self, query_text: str, limit: int = 10, db: Session = None) -> List[Dict[str, Any]]:
+        """
+        텍스트를 벡터로 변환하여 유사도 검색 (API용)
+        
+        Args:
+            query_text (str): 검색할 텍스트
+            limit (int): 반환할 최대 결과 수
+            db (Session): 데이터베이스 세션 (선택적)
+            
+        Returns:
+            List[Dict]: 검색 결과 리스트
+        """
+        try:
+            # 데이터베이스 세션 가져오기
+            if db is None:
+                db = self.get_db_session()
+                should_close_db = True
+            else:
+                should_close_db = False
+            
+            # 임베딩 생성
+            hybrid_embedding = self.embedding_service.create_hybrid_embedding(query_text)
+            dense_vector = hybrid_embedding['dense_vector']
+            if hasattr(dense_vector, 'tolist'):
+                dense_vector = dense_vector.tolist()
+            
+            # 벡터 검색 실행
+            results = self._vector_similarity_search_internal(dense_vector, limit)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"벡터 검색 실패: {e}")
+            raise
+        finally:
+            if should_close_db and 'db' in locals():
+                db.close()
+
     def basic_search(self, query_text: str, search_type: str = "both", limit: int = 5) -> Dict[str, Any]:
         """
         기본 검색 기능 (벡터 또는 키워드 또는 둘 다)
