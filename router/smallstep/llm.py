@@ -10,8 +10,14 @@ from prompts.goal_analysis import create_goal_analysis_prompt
 from prompts.feedback import create_feedback_prompt
 from schemas.smallstep.activities import Activity
 from datetime import datetime
+from services.filtering import SafetyAPIService, InputValidationService, LLMAnalysisService
 
 logger = logging.getLogger(__name__)
+
+# 서비스 초기화
+safety_service = SafetyAPIService()
+validation_service = InputValidationService()
+llm_analysis_service = LLMAnalysisService()
 
 router = APIRouter(
     prefix="/api/smallstep",
@@ -47,6 +53,7 @@ else:
 
 from schemas.smallstep.llm import GoalAnalysisRequest, RoadmapPhase, GoalAnalysisResponse
 
+
 class AIFeedbackRequest(BaseModel):
     user_id: int
     goal_id: int
@@ -79,8 +86,50 @@ LLM을 사용하여 사용자의 목표를 분석하고 활동 계획을 생성�
 }
 ```
 """)
-def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallstep_db)):
+async def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallstep_db)):
     """목표 분석 및 활동 계획 생성"""
+
+    # 1단계: Safety API 유해성 검사
+    safety_passed, safety_message, safety_info = safety_service.check_safety(request.goal)
+    
+    # Safety API 응답 로그 출력
+    print(f"Safety API 응답 - 목표: '{request.goal}'")
+    print(f"Safety API 응답 - 통과: {safety_passed}, 메시지: {safety_message}")
+    print(f"Safety API 응답 - 상세정보: {safety_info}")
+    
+    # Safety API 결과에 따른 분기
+    if not safety_passed:
+        # Safety API에서 차단된 경우
+        print(f"Safety API 차단: {request.goal} - {safety_message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=safety_message
+        )
+    
+    # 2단계: 규칙 기반 검사 (빠른 필터링)
+    print(f"2단계 규칙 검사 시작: {request.goal}")
+    goal_valid, goal_error = validation_service.validate_goal_input(request.goal)
+    if not goal_valid:
+        print(f"2단계 규칙 검사 차단: {request.goal} - {goal_error}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=goal_error
+        )
+    print(f"2단계 규칙 검사 통과: {request.goal}")
+    
+    # 3단계: LLM 심층 분석 (정교한 분석)
+    print(f"3단계 LLM 분석 시작: {request.goal}")
+    llm_valid, llm_error = llm_analysis_service.analyze_goal_safety(request.goal)
+    print(f"DEBUG: llm_valid = {llm_valid}, llm_error = {llm_error}")
+    if not llm_valid:
+        print(f"3단계 LLM 분석 차단: {request.goal} - {llm_error}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=llm_error
+        )
+    else:
+        print(f"3단계 LLM 분석 통과: {request.goal}")
+    
     if not model:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

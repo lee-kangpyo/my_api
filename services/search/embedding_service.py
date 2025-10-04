@@ -39,6 +39,9 @@ class EmbeddingService:
             np.ndarray: 1024차원 Dense 벡터
         """
         try:
+            # 입력 타입 확인
+            logger.debug(f"입력 텍스트 타입: {type(text)}, 값: {text}")
+            
             # GGUF 모델 가져오기
             gguf_model = model_manager.get_gguf_model()
             
@@ -85,6 +88,11 @@ class EmbeddingService:
             Dict[str, Any]: Dense 벡터 + Sparse 키워드 정보
         """
         try:
+            # 입력 검증
+            if not isinstance(text, str):
+                logger.error(f"잘못된 입력 타입: {type(text)}, 값: {text}")
+                raise ValueError(f"text는 문자열이어야 합니다. 받은 타입: {type(text)}")
+            
             logger.info(f"하이브리드 임베딩 생성 시작: {text[:100]}...")
             
             # Dense 벡터 생성
@@ -94,15 +102,21 @@ class EmbeddingService:
             sparse_data = self.extract_sparse_keywords(text)
             
             # 결과 조합
+            # dense_vector가 이미 리스트인지 확인
+            if hasattr(dense_vector, 'tolist'):
+                dense_vector_list = dense_vector.tolist()
+            else:
+                dense_vector_list = dense_vector
+                
             result = {
                 "text": text,
-                "dense_vector": dense_vector.tolist(),  # JSON 직렬화를 위해 리스트로 변환
+                "dense_vector": dense_vector_list,  # JSON 직렬화를 위해 리스트로 변환
                 "sparse_data": sparse_data,
-                "vector_dimension": len(dense_vector),
+                "vector_dimension": len(dense_vector_list),
                 "created_method": "gguf_kiwi"
             }
             
-            logger.info(f"✅ 하이브리드 임베딩 생성 완료: {len(dense_vector)}차원 + {len(sparse_data['weights'])}개 키워드")
+            logger.info(f"✅ 하이브리드 임베딩 생성 완료: {len(dense_vector_list)}차원 + {len(sparse_data['weights'])}개 키워드")
             return result
             
         except Exception as e:
