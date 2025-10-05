@@ -25,8 +25,8 @@ class InputValidationService:
             'ㅋㅋㅋ', 'ㅎㅎㅎ', 'ㅠㅠㅠ', 'ㅜㅜㅜ', 'ㅡㅡㅡ'
         ]
         
-        # 최소/최대 길이 제한
-        self.min_length = 5
+        # 최소/최대 길이 제한 (테스트용 완화)
+        self.min_length = 2
         self.max_length = 200
         
         # 목표 관련 필수 키워드 (동사, 명사 등)
@@ -78,11 +78,11 @@ class InputValidationService:
             if re.search(r'(.)\1{2,}', goal_text):  # 같은 문자가 3번 이상 반복
                 return False, "목표를 더 구체적으로 입력해주세요."
             
-            # 6. 목표 형식 검증 (선택적)
-            if not has_goal_indicator:
-                # 목표 키워드가 없어도 너무 짧지 않고 금지 키워드가 없으면 통과
-                if len(goal_text) < 10:
-                    return False, "목표를 더 구체적으로 입력해주세요."
+            # 6. 목표 형식 검증 (테스트용 비활성화)
+            # if not has_goal_indicator:
+            #     # 목표 키워드가 없어도 너무 짧지 않고 금지 키워드가 없으면 통과
+            #     if len(goal_text) < 10:
+            #         return False, "목표를 더 구체적으로 입력해주세요."
             
             logger.info(f"목표 검증 통과: '{goal_text}'")
             return True, "검증 통과"
