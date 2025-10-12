@@ -53,7 +53,6 @@ def create_goal_analysis_prompt(goal: str, duration_weeks: int = None, weekly_fr
 ---
 
 ## [출력 형식]
-```json
 {{
   "roadmap": [
     {{

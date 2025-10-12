@@ -1,6 +1,6 @@
 # SmallStep 라우터 패키지
 from fastapi import APIRouter
-from . import activities, goals, users, game_data, llm, system
+from . import activities, goals, users, game_data, llm, system, keywords
 
 # 통합 라우터 생성
 router = APIRouter()
@@ -11,4 +11,5 @@ router.include_router(goals.router)
 router.include_router(users.router)
 router.include_router(game_data.router)
 router.include_router(llm.router)
-router.include_router(system.router) 
+router.include_router(system.router)
+router.include_router(keywords.router)

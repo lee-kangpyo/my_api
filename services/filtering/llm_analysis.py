@@ -31,7 +31,7 @@ class LLMAnalysisService:
                 logger.error(f"LLM Analysis 모델 초기화 실패: {e}")
                 self.model = None
 
-    def analyze_goal_safety(self, goal_text: str) -> Tuple[bool, str]:
+    async def analyze_goal_safety(self, goal_text: str) -> Tuple[bool, str]:
         """
         목표 적합성 분석
         
@@ -48,16 +48,12 @@ class LLMAnalysisService:
             # 프롬프트 생성
             prompt = create_llm_analysis_prompt(goal_text)
             
-            print(f"LLM 심층 분석 프롬프트: {prompt}")
-            
             # LLM 호출
             response = self.model.generate_content(prompt)
             result = response.text.strip().lower()
             
+            print(f"LLM 심층 분석 프롬프트: {prompt}")
             print(f"LLM 심층 분석 응답: {result}")
-            print(f"DEBUG: result 타입: {type(result)}, 길이: {len(result)}")
-            print(f"DEBUG: 'T' in result: {'T' in result}")
-            print(f"DEBUG: 'F' in result: {'F' in result}")
             
             # 결과 판단 (T/F로 간단하게)
             if "T" in result.upper():
