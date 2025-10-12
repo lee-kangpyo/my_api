@@ -39,8 +39,9 @@ starlette==0.41.3
 tqdm==4.67.1
 typing_extensions==4.12.2
 uritemplate==4.2.0
-urllib3==2.5.0
+urllib3==1.26.18
 uvicorn==0.32.1
+email-validator==2.3.0
 
 # GGUF + Kiwi packages (lightweight + keyword extraction)
 llama-cpp-python>=0.2.0

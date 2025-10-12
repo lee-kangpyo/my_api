@@ -29,5 +29,8 @@ firebase-credentials.json
 .env
 /ssl/
 /models/
+*.gguf
+services/models/
+models/
 
 /tests/
