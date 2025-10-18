@@ -125,6 +125,9 @@ class SS_CACHED_PLANS(Base):
     PLAN_SPARSE_VECTOR = Column(LONGTEXT, nullable=True)  # JSON 데이터
     PLAN_DATA = Column(LONGTEXT, nullable=False)  # JSON 데이터
     SPARSE_KEYWORDS = Column(Text, nullable=True)
+    DURATION_WEEKS = Column(INTEGER(11), nullable=True)
+    WEEKLY_FREQUENCY = Column(INTEGER(11), nullable=True)
+    KEYWORD_STATUS = Column(String(1), nullable=True, default='I')
     CREATED_AT = Column(TIMESTAMP, nullable=True, server_default=text("current_timestamp()"))
 
 
@@ -136,6 +139,7 @@ class SS_GOAL_TEMPLATES(Base):
     CATEGORY = Column(String(100), nullable=False)
     GOAL_TEXT = Column(String(255), nullable=False)
     DISPLAY_ORDER = Column(INTEGER(11), nullable=True)
+    CACHED_PLAN_ID = Column(String(36), nullable=True)
 
 
 class SS_USER_PLANS(Base):

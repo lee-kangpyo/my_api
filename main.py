@@ -10,7 +10,6 @@ from fastapi import FastAPI
 
 from router.lotto import lotto
 from router.smallstep import smallstep
-from router.smallstep import keywords
 
 
 load_dotenv()
@@ -102,5 +101,4 @@ async def root():
 
 
 app.include_router(lotto.router)
-app.include_router(smallstep.router)
-# app.include_router(keywords.router)
+app.include_router(smallstep)
