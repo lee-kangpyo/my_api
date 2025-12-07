@@ -38,36 +38,64 @@ def get_onboarding_templates(db: Session = Depends(get_smallstep_db)):
         total_count = 0
         
         for template in templates:
-            category = template.CATEGORY
-            if category not in categories:
-                categories[category] = []
-            
-            # 해당 템플릿의 캐시드 플랜 찾기
-            cached_plan = plan_mapping.get(template.ID)
-            
-            template_data = {
-                "id": str(template.ID),
-                "goal_text": template.GOAL_TEXT,
-                "category": template.CATEGORY,
-                "display_order": template.DISPLAY_ORDER,
-                "cached_plan_id": template.CACHED_PLAN_ID,  # CACHED_PLAN_ID 추가
-                "preview_data": None
-            }
-            
-            # 캐시드 플랜이 있으면 미리보기 데이터 추가
-            if cached_plan:
-                plan_data = json.loads(cached_plan.PLAN_DATA) if cached_plan.PLAN_DATA else {}
-                template_data["preview_data"] = {
-                    "plan_id": cached_plan.ID,
-                    "goal": plan_data.get("goal", ""),
-                    "status": plan_data.get("status", "skeleton"),
-                    "needs_llm_completion": plan_data.get("needs_llm_completion", True),
-                    "duration_weeks": getattr(cached_plan, 'DURATION_WEEKS', None),
-                    "weekly_frequency": getattr(cached_plan, 'WEEKLY_FREQUENCY', None)
+            try:
+                category = template.CATEGORY
+                if category not in categories:
+                    categories[category] = []
+                
+                # 해당 템플릿의 캐시드 플랜 찾기
+                cached_plan = plan_mapping.get(template.ID)
+                
+                template_data = {
+                    "id": str(template.ID),
+                    "goal_text": template.GOAL_TEXT,
+                    "category": template.CATEGORY,
+                    "display_order": template.DISPLAY_ORDER,
+                    "cached_plan_id": template.CACHED_PLAN_ID,  # CACHED_PLAN_ID 추가
+                    "preview_data": None
                 }
-            
-            categories[category].append(template_data)
-            total_count += 1
+                
+                # 캐시드 플랜이 있으면 미리보기 데이터 추가
+                if cached_plan:
+                    try:
+                        plan_data = json.loads(cached_plan.PLAN_DATA) if cached_plan.PLAN_DATA else {}
+                        template_data["preview_data"] = {
+                            "plan_id": cached_plan.ID,
+                            "goal": plan_data.get("goal", ""),
+                            "status": plan_data.get("status", "skeleton"),
+                            "needs_llm_completion": plan_data.get("needs_llm_completion", True),
+                            "duration_weeks": getattr(cached_plan, 'DURATION_WEEKS', None),
+                            "weekly_frequency": getattr(cached_plan, 'WEEKLY_FREQUENCY', None)
+                        }
+                    except json.JSONDecodeError as json_err:
+                        # JSON 파싱 실패 시 상세 로그 출력
+                        logger.error(f"❌ 템플릿 JSON 파싱 실패 (검색 결과에서 제외):")
+                        logger.error(f"   - 템플릿 ID: {template.ID}")
+                        logger.error(f"   - 템플릿 목표: {template.GOAL_TEXT}")
+                        logger.error(f"   - 캐시드 플랜 ID: {cached_plan.ID if cached_plan else 'None'}")
+                        logger.error(f"   - 에러 메시지: {str(json_err)}")
+                        if cached_plan and cached_plan.PLAN_DATA:
+                            plan_data_preview = cached_plan.PLAN_DATA[:500] if len(cached_plan.PLAN_DATA) > 500 else cached_plan.PLAN_DATA
+                            logger.error(f"   - PLAN_DATA 미리보기 (처음 500자): {plan_data_preview}")
+                            # 에러 위치 근처의 데이터도 출력
+                            if hasattr(json_err, 'pos'):
+                                start = max(0, json_err.pos - 100)
+                                end = min(len(cached_plan.PLAN_DATA), json_err.pos + 100)
+                                logger.error(f"   - 에러 위치 근처 데이터: {cached_plan.PLAN_DATA[start:end]}")
+                        # JSON 파싱 실패한 템플릿은 검색 결과에서 제외
+                        continue
+                
+                categories[category].append(template_data)
+                total_count += 1
+            except Exception as e:
+                # 개별 템플릿 처리 중 예상치 못한 오류 발생 시
+                logger.error(f"❌ 템플릿 처리 실패:")
+                logger.error(f"   - 템플릿 ID: {template.ID}")
+                logger.error(f"   - 템플릿 목표: {template.GOAL_TEXT}")
+                logger.error(f"   - 에러 메시지: {str(e)}")
+                logger.error(f"   - 에러 타입: {type(e).__name__}")
+                # 개별 템플릿 오류는 건너뛰고 계속 진행
+                continue
         
         return {
             "categories": categories,
@@ -99,7 +127,15 @@ def get_template_preview(template_id: str, db: Session = Depends(get_smallstep_d
         print(cached_plan.PLAN_DATA)
         
         # 미리보기 데이터 구성
-        plan_data = json.loads(cached_plan.PLAN_DATA) if cached_plan.PLAN_DATA else {}
+        try:
+            plan_data = json.loads(cached_plan.PLAN_DATA) if cached_plan.PLAN_DATA else {}
+        except json.JSONDecodeError as json_err:
+            # JSON 파싱 오류를 명확하게 구분
+            logger.error(f"템플릿 {template_id} JSON 파싱 실패: {str(json_err)}")
+            raise HTTPException(
+                status_code=422,  # Unprocessable Entity
+                detail=f"템플릿 데이터 파싱 오류가 발생했습니다. 템플릿 ID: {template_id}, 오류: {str(json_err)}"
+            )
         
         return {
             "template_id": template_id,
