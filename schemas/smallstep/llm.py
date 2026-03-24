@@ -6,6 +6,7 @@ class GoalAnalysisRequest(BaseModel):
     goal: str  # 필수 입력
     duration_weeks: Optional[int] = None  # 선택 입력
     weekly_frequency: Optional[int] = None  # 선택 입력
+    save_to_cache: Optional[bool] = False  # SS_CACHED_PLANS 저장 여부 (기본값: False)
 
 class RoadmapPhase(BaseModel):
     phase: int

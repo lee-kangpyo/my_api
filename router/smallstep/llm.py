@@ -10,8 +10,15 @@ from prompts.goal_analysis import create_goal_analysis_prompt
 from prompts.feedback import create_feedback_prompt
 from schemas.smallstep.activities import Activity
 from datetime import datetime
+from services.core import GoalValidationService
+
+import re
+import json
 
 logger = logging.getLogger(__name__)
+
+# 서비스 초기화
+goal_validation_service = GoalValidationService()
 
 router = APIRouter(
     prefix="/api/smallstep",
@@ -101,10 +108,11 @@ if GOOGLE_API_KEY:
     # 페르소나 설정으로 채팅 시작
     chat = model.start_chat()
 else:
+    logger.warning("GOOGLE_API_KEY가 설정되지 않음")
     model = None
-    chat = None
 
 from schemas.smallstep.llm import GoalAnalysisRequest, RoadmapPhase, GoalAnalysisResponse
+
 
 class AIFeedbackRequest(BaseModel):
     user_id: int
@@ -138,46 +146,65 @@ LLM을 사용하여 사용자의 목표를 분석하고 활동 계획을 생성�
 }
 ```
 """)
-def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallstep_db)):
+async def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallstep_db)):
     """목표 분석 및 활동 계획 생성"""
-    if not chat:
+
+    # 목표 검증 (3단계 필터링)
+    validation_passed, validation_message, validation_info = await goal_validation_service.validate_goal(request.goal)
+    
+    if not validation_passed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=validation_message
+        )
+    
+    if not model:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google AI API 키가 설정되지 않았습니다."
         )
     
     try:
-        # JSON 형식으로 목표 분석 요청
-        prompt = f"""
-```json
-{{
-  "goal": "{request.goal}",
-  "duration_weeks": {request.duration_weeks or 'null'},
-  "weekly_frequency": {request.weekly_frequency or 'null'}
-}}
-```
-
-위 JSON 입력을 분석하여 마스터 플랜을 생성해주세요.
-"""
+        # 기존 프롬프트 함수 사용
+        prompt = create_goal_analysis_prompt(
+            goal=request.goal,
+            duration_weeks=request.duration_weeks,
+            weekly_frequency=request.weekly_frequency
+        )
         
-        response = chat.send_message(prompt)
+        # 단 한 번의 독립적인 API 호출
+        response = model.generate_content(prompt)
         
         # JSON 응답 파싱
         try:
-            import json
             content = response.text.strip()
+            print(f"🔍 LLM 원본 응답: {content}")
+            print(f"🔍 응답 길이: {len(content)}")
+            
+            if not content:
+                raise ValueError("LLM 응답이 비어있습니다.")
             
             # JSON 부분만 추출 (```json ... ``` 형태일 경우)
             if "```json" in content:
                 start = content.find("```json") + 7
                 end = content.find("```", start)
                 json_str = content[start:end].strip()
+            elif "```" in content:
+                # ```json이 없지만 ```가 있는 경우
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                json_str = content[start:end].strip()
             else:
                 json_str = content
             
-            # JSON 파싱
-            result = json.loads(json_str)
+            print(f"🔍 추출된 JSON: {json_str[:100]}...")
             
+            result = json.loads(json_str)
+
+            # 로그에도 기록
+            logger.info(f"LLM Response Length: {len(content)}")
+            logger.info(f"LLM Response: {content}")
+
             # Activity 스키마에 맞게 변환
             activities = []
             for item in result["schedule"]:
@@ -192,6 +219,34 @@ def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallst
                     id=0,  # 임시값
                     created_at=datetime.now()  # 현재 시간으로 설정
                 ))
+            
+            # SS_CACHED_PLANS 저장 로직 (save_to_cache가 True일 때만)
+            if request.save_to_cache:
+                try:
+                    print(f"SS_CACHED_PLANS 저장 시작: {request.goal}")
+                    
+                    # 서비스 레이어를 통한 저장
+                    from services.core import CachedPlanService
+                    cached_plan_service = CachedPlanService()
+                    
+                    plan_id = cached_plan_service.save_cached_plan(
+                        goal=request.goal,
+                        duration_weeks=request.duration_weeks,
+                        weekly_frequency=request.weekly_frequency,
+                        roadmap=result["roadmap"],
+                        schedule=result["schedule"],
+                        db=db
+                    )
+                    
+                    if plan_id:
+                        print(f"✅ SS_CACHED_PLANS 저장 완료: {plan_id}")
+                    else:
+                        print(f"❌ SS_CACHED_PLANS 저장 실패")
+                    
+                except Exception as e:
+                    print(f"❌ SS_CACHED_PLANS 저장 실패: {e}")
+                    logger.error(f"Cached plan save failed: {str(e)}")
+                    # 저장 실패해도 API 응답은 정상 반환
             
             return GoalAnalysisResponse(
                 roadmap=result["roadmap"],
@@ -235,42 +290,48 @@ def analyze_goal(request: GoalAnalysisRequest, db: Session = Depends(get_smallst
 """)
 def generate_feedback(request: AIFeedbackRequest, db: Session = Depends(get_smallstep_db)):
     """AI 피드백 생성"""
-    if not chat:
+    if not model:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google AI API 키가 설정되지 않았습니다."
         )
     
     try:
-        # JSON 형식으로 피드백 요청
-        completed_activities_str = ', '.join(request.completed_activities) if request.completed_activities else ""
-        current_progress_str = f"{request.current_progress}" if request.current_progress is not None else "null"
+        # 기존 프롬프트 함수 사용
+        prompt = create_feedback_prompt(
+            completed_activities=request.completed_activities,
+            current_progress=request.current_progress
+        )
         
-        prompt = f"""
-```json
-{{
-  "completed_activities": "{completed_activities_str}",
-  "current_progress": {current_progress_str}
-}}
-```
-
-위 JSON 입력을 분석하여 피드백을 생성해주세요.
-"""
-        
-        response = chat.send_message(prompt)
+        # 단 한 번의 독립적인 API 호출
+        response = model.generate_content(prompt)
         
         # JSON 응답 파싱
         try:
             import json
             content = response.text.strip()
             
+            # 디버깅을 위해 실제 응답 로그 출력
+            logger.info(f"LLM Response: {content}")
+            
             # JSON 부분만 추출 (```json ... ``` 형태일 경우)
             if "```json" in content:
                 start = content.find("```json") + 7
                 end = content.find("```", start)
                 json_str = content[start:end].strip()
+            elif "```" in content:
+                # ```json이 없지만 ```가 있는 경우
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                json_str = content[start:end].strip()
             else:
                 json_str = content
+            
+            # 디버깅을 위해 추출된 JSON 로그 출력
+            logger.info(f"Extracted JSON: {json_str}")
+            
+            # JSON 문자열 정리 (불필요한 문자 제거)
+            json_str = json_str.replace('\n', ' ').replace('\r', ' ').strip()
             
             # JSON 파싱
             result = json.loads(json_str)
