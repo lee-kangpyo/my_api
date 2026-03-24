@@ -22,10 +22,9 @@ router = APIRouter(
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash')
-    # 페르소나 설정으로 채팅 시작
-    chat = model.start_chat(
-        context="""# [지시문]
+    model = genai.GenerativeModel(
+        model_name='gemini-2.0-flash',
+        system_instruction="""# [지시문]
 
 ## **1. 당신의 정체성 (Your Identity)**
 
@@ -99,6 +98,8 @@ if GOOGLE_API_KEY:
 
 항상 JSON 형식으로만 응답하세요."""
     )
+    # 페르소나 설정으로 채팅 시작
+    chat = model.start_chat()
 else:
     model = None
     chat = None
