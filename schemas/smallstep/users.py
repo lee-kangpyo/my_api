@@ -6,6 +6,9 @@ class UserBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     name: str
     email: Optional[str] = None
+    daily_available_time: Optional[int] = None
+    notification_enabled: Optional[bool] = True
+    notification_time: Optional[str] = None
 
 class UserCreate(UserBase):
     pass
@@ -14,18 +17,15 @@ class UserUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     name: Optional[str] = None
     email: Optional[str] = None
-    level: Optional[int] = None
-    consecutive_days: Optional[int] = None
-    total_steps: Optional[int] = None
-    completed_steps: Optional[int] = None
-    current_goal: Optional[str] = None
+    daily_available_time: Optional[int] = None
+    notification_enabled: Optional[bool] = None
+    notification_time: Optional[str] = None
 
 class User(UserBase):
     id: int
     level: int = 1
-    consecutive_days: int = 0
-    total_steps: int = 0
-    completed_steps: int = 0
-    current_goal: Optional[str] = None
+    experience_points: int = 0
+    current_streak: int = 0
+    longest_streak: int = 0
     created_at: datetime
-    updated_at: datetime 
+    updated_at: datetime

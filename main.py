@@ -30,11 +30,13 @@ app = FastAPI(
 - 🎮 **게이미피케이션**: 레벨, 경험치, 연속 성공일 시스템
 - 👤 **사용자 관리**: 개인화된 진행 상황 추적
 
-### API 엔드포인트:
-- `/api/smallstep/users` - 사용자 관리
-- `/api/smallstep/goals` - 목표 관리
-- `/api/smallstep/activities` - 활동 관리
-- `/api/smallstep/game-data` - 게임 데이터 관리
+### API 엔드포인트 (v2 아키텍처):
+- `/api/smallstep/users` - 사용자 통계 및 프로필 관리
+- `/api/smallstep/goals` - 목표 설정 및 Phase 자동 생성
+- `/api/smallstep/phases` - 목표 달성을 위한 단계(Phase) 관리
+- `/api/smallstep/weekly-plans` - AI 기반 적응형 주간 계획 생성
+- `/api/smallstep/tasks` - 오늘 할 일 및 완료 처리
+- `/api/smallstep/stats` - 진행률, XP, 스트릭 통계
 - `/api/smallstep/search` - AI 검색 서비스 (벡터/키워드/하이브리드)
 
 ## 🎰 Lotto 앱

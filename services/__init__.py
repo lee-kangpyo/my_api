@@ -1,8 +1,3 @@
 """
 스몰 스텝 서비스 모듈
 """
-
-from .search.embedding_service import EmbeddingService
-from .search.search_service import SearchService
-
-__all__ = ['EmbeddingService', 'SearchService']

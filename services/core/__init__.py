@@ -1,11 +1,5 @@
 """
-핵심 서비스들
+핵심 서비스들 (v2)
 """
 
-from .cached_plan_service import CachedPlanService
-from .goal_validation_service import GoalValidationService
-
-__all__ = [
-    'CachedPlanService',
-    'GoalValidationService'
-]
+__all__ = []
