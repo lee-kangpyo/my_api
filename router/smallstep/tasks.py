@@ -56,6 +56,18 @@ def complete_task(task_id: int, db: Session = Depends(get_smallstep_db)):
     if next_task and next_task.STATUS == 'LOCKED':
         next_task.STATUS = 'AVAILABLE'
         
+    # 4. 게이미피케이션 연동 (XP 부여 및 스트릭 업데이트)
+    from models import SMALLSTEP_GOALS
+    from services.gamification import GamificationService
+    goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.ID == task.GOAL_ID).first()
+    if goal:
+        gamification_service = GamificationService(db)
+        gamification_service.award_task_completion_xp(
+            user_id=goal.USER_ID,
+            task_id=task.ID,
+            goal_id=task.GOAL_ID
+        )
+        
     db.commit()
     db.refresh(task)
     return task
