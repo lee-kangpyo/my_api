@@ -1,12 +1,10 @@
-
-from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Text, text, Enum, Integer, Boolean, TIMESTAMP
+from sqlalchemy import CHAR, Column, DateTime, ForeignKey, String, Text, text, Enum, Integer, Boolean, TIMESTAMP, JSON
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import warnings
 from sqlalchemy.exc import SAWarning
 
-# 특정 경고 클래스를 무시하도록 설정 -- 모델들이 같은 컬럼 이름을 가졌을때 에러가뜸...
 warnings.filterwarnings('ignore', category=SAWarning, message="^Implicitly combining column .*")
 
 Base = declarative_base()
@@ -44,7 +42,8 @@ class LOTTOBUGREPORTIMAGE(Base):
 
     LOTTO_BUGREPORT = relationship('LOTTOBUGREPORT')
 
-# ===== SmallStep 앱 모델들 =====
+
+# ===== SmallStep 앱 모델들 (v2 스키마) =====
 class SMALLSTEP_USERS(Base):
     __tablename__ = 'SMALLSTEP_USERS'
     __table_args__ = {'comment': 'SmallStep 사용자 테이블'}
@@ -53,12 +52,16 @@ class SMALLSTEP_USERS(Base):
     NAME = Column(String(100), nullable=False)
     EMAIL = Column(String(100), nullable=True)
     LEVEL = Column(INTEGER(11), default=1)
-    CONSECUTIVE_DAYS = Column(INTEGER(11), default=0)
-    TOTAL_STEPS = Column(INTEGER(11), default=0)
-    COMPLETED_STEPS = Column(INTEGER(11), default=0)
-    CURRENT_GOAL = Column(String(100), nullable=True)
+    DAILY_AVAILABLE_TIME = Column(INTEGER(11), nullable=True)
+    EXPERIENCE_POINTS = Column(INTEGER(11), default=0)
+    CURRENT_STREAK = Column(INTEGER(11), default=0)
+    LONGEST_STREAK = Column(INTEGER(11), default=0)
+    NOTIFICATION_ENABLED = Column(Boolean, default=True)
+    NOTIFICATION_TIME = Column(String(10), nullable=True)
     CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
     UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
+
+    goals = relationship('SMALLSTEP_GOALS', back_populates='smallstep_users', cascade='all, delete-orphan')
 
 
 class SMALLSTEP_GOALS(Base):
@@ -67,86 +70,84 @@ class SMALLSTEP_GOALS(Base):
 
     ID = Column(INTEGER(11), primary_key=True)
     USER_ID = Column(ForeignKey('SMALLSTEP_USERS.ID'), nullable=False, index=True)
-    TITLE = Column(String(200), nullable=False)
-    DESCRIPTION = Column(Text, nullable=True)
-    CATEGORY = Column(String(50), nullable=True)
-    STATUS = Column(Enum('active', 'completed', 'paused'), default='active')
-    PROGRESS = Column(INTEGER(11), default=0)
-    TARGET_DATE = Column(DateTime, nullable=True)
+    GOAL_TEXT = Column(Text, nullable=False)
+    GOAL_TYPE = Column(Enum('DEADLINE', 'ONGOING'), default='ONGOING')
+    STATUS = Column(Enum('ACTIVE', 'MAINTAIN', 'PAUSED', 'COMPLETED', 'ARCHIVED'), default='ACTIVE')
+    DEADLINE_DATE = Column(DateTime, nullable=True)
+    CURRENT_LEVEL = Column(INTEGER(11), default=1)
     CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
     UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
 
-    SMALLSTEP_USERS = relationship('SMALLSTEP_USERS')
+    smallstep_users = relationship('SMALLSTEP_USERS', back_populates='goals')
+    phases = relationship('SMALLSTEP_PHASES', back_populates='goals', cascade='all, delete-orphan')
+    tasks = relationship('SMALLSTEP_TASKS', back_populates='goals', cascade='all, delete-orphan')
 
 
-class SMALLSTEP_ACTIVITIES(Base):
-    __tablename__ = 'SMALLSTEP_ACTIVITIES'
-    __table_args__ = {'comment': 'SmallStep 활동 테이블'}
+class SMALLSTEP_PHASES(Base):
+    __tablename__ = 'SMALLSTEP_PHASES'
+    __table_args__ = {'comment': 'SmallStep 단계 테이블'}
 
     ID = Column(INTEGER(11), primary_key=True)
     GOAL_ID = Column(ForeignKey('SMALLSTEP_GOALS.ID'), nullable=False, index=True)
-    WEEK = Column(INTEGER(11), nullable=False)
-    DAY = Column(INTEGER(11), nullable=False)
-    PHASE_LINK = Column(INTEGER(11), nullable=False)
-    TITLE = Column(String(200), nullable=False)
-    DESCRIPTION = Column(Text, nullable=True)
-    ACTIVITY_TYPE = Column(String(50), nullable=True)
-    IS_COMPLETED = Column(Boolean, default=False)
+    PHASE_ORDER = Column(INTEGER(11), nullable=False)
+    PHASE_TITLE = Column(String(200), nullable=False)
+    PHASE_DESCRIPTION = Column(Text, nullable=True)
+    ESTIMATED_WEEKS = Column(INTEGER(11), nullable=True)
+    STATUS = Column(Enum('PENDING', 'ACTIVE', 'COMPLETED'), default='PENDING')
+    STARTED_AT = Column(DateTime, nullable=True)
     COMPLETED_AT = Column(DateTime, nullable=True)
     CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
 
-    SMALLSTEP_GOALS = relationship('SMALLSTEP_GOALS')
+    goals = relationship('SMALLSTEP_GOALS', back_populates='phases')
+    weekly_plans = relationship('SMALLSTEP_WEEKLY_PLANS', back_populates='phases', cascade='all, delete-orphan')
 
 
-class SMALLSTEP_GAME_DATA(Base):
-    __tablename__ = 'SMALLSTEP_GAME_DATA'
-    __table_args__ = {'comment': 'SmallStep 게임 데이터 테이블'}
+class SMALLSTEP_WEEKLY_PLANS(Base):
+    __tablename__ = 'SMALLSTEP_WEEKLY_PLANS'
+    __table_args__ = {'comment': 'SmallStep 주간 계획 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    GOAL_ID = Column(ForeignKey('SMALLSTEP_GOALS.ID'), nullable=False, index=True)
+    PHASE_ID = Column(ForeignKey('SMALLSTEP_PHASES.ID'), nullable=False, index=True)
+    WEEK_START_DATE = Column(DateTime, nullable=False)
+    WEEK_END_DATE = Column(DateTime, nullable=False)
+    AI_CONTEXT = Column(JSON, nullable=True)
+    AI_RESPONSE = Column(JSON, nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+
+    phases = relationship('SMALLSTEP_PHASES', back_populates='weekly_plans')
+    tasks = relationship('SMALLSTEP_TASKS', back_populates='weekly_plans', cascade='all, delete-orphan')
+
+
+class SMALLSTEP_TASKS(Base):
+    __tablename__ = 'SMALLSTEP_TASKS'
+    __table_args__ = {'comment': 'SmallStep 작업 테이블'}
+
+    ID = Column(INTEGER(11), primary_key=True)
+    WEEKLY_PLAN_ID = Column(ForeignKey('SMALLSTEP_WEEKLY_PLANS.ID'), nullable=False, index=True)
+    GOAL_ID = Column(ForeignKey('SMALLSTEP_GOALS.ID'), nullable=False, index=True)
+    TASK_ORDER = Column(INTEGER(11), nullable=False)
+    TASK_TITLE = Column(String(200), nullable=False)
+    TASK_DESCRIPTION = Column(Text, nullable=True)
+    ESTIMATED_MINUTES = Column(INTEGER(11), nullable=True)
+    STATUS = Column(Enum('LOCKED', 'AVAILABLE', 'COMPLETED', 'SKIPPED'), default='LOCKED')
+    COMPLETED_AT = Column(DateTime, nullable=True)
+    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
+
+    weekly_plans = relationship('SMALLSTEP_WEEKLY_PLANS', back_populates='tasks')
+    goals = relationship('SMALLSTEP_GOALS', back_populates='tasks')
+
+
+class SMALLSTEP_ACTIVITY_LOG(Base):
+    __tablename__ = 'SMALLSTEP_ACTIVITY_LOG'
+    __table_args__ = {'comment': 'SmallStep 활동 로그 테이블'}
 
     ID = Column(INTEGER(11), primary_key=True)
     USER_ID = Column(ForeignKey('SMALLSTEP_USERS.ID'), nullable=False, index=True)
-    LEVEL = Column(INTEGER(11), default=1)
-    EXPERIENCE = Column(INTEGER(11), default=0)
-    CURRENT_STREAK = Column(INTEGER(11), default=0)
-    LONGEST_STREAK = Column(INTEGER(11), default=0)
-    LAST_COMPLETED_DATE = Column(DateTime, nullable=True)
-    CREATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
-    UPDATED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp() ON UPDATE current_timestamp()"))
+    TASK_ID = Column(ForeignKey('SMALLSTEP_TASKS.ID'), nullable=True, index=True)
+    GOAL_ID = Column(ForeignKey('SMALLSTEP_GOALS.ID'), nullable=True, index=True)
+    ACTION = Column(Enum('COMPLETED', 'SKIPPED'), nullable=False)
+    XP_EARNED = Column(INTEGER(11), default=0)
+    COMPLETED_AT = Column(DateTime, nullable=False, server_default=text("current_timestamp()"))
 
     SMALLSTEP_USERS = relationship('SMALLSTEP_USERS')
-
-
-# ===== SmallStep AI 마스터 플래너 모델들 =====
-class SS_CACHED_PLANS(Base):
-    __tablename__ = 'SS_CACHED_PLANS'
-    __table_args__ = {'comment': 'AI 마스터 플래너 캐시된 계획 테이블'}
-
-    ID = Column(String(36), primary_key=True)
-    PLAN_VECTOR = Column('PLAN_VECTOR', nullable=False)  # VECTOR(1024) - SQLAlchemy에서 직접 지원하지 않음
-    PLAN_SPARSE_VECTOR = Column(LONGTEXT, nullable=True)  # JSON 데이터
-    PLAN_DATA = Column(LONGTEXT, nullable=False)  # JSON 데이터
-    SPARSE_KEYWORDS = Column(Text, nullable=True)
-    DURATION_WEEKS = Column(INTEGER(11), nullable=True)
-    WEEKLY_FREQUENCY = Column(INTEGER(11), nullable=True)
-    KEYWORD_STATUS = Column(String(1), nullable=True, default='I')
-    CREATED_AT = Column(TIMESTAMP, nullable=True, server_default=text("current_timestamp()"))
-
-
-class SS_GOAL_TEMPLATES(Base):
-    __tablename__ = 'SS_GOAL_TEMPLATES'
-    __table_args__ = {'comment': 'AI 마스터 플래너 목표 템플릿 테이블'}
-
-    ID = Column(INTEGER(11), primary_key=True, autoincrement=True)
-    CATEGORY = Column(String(100), nullable=False)
-    GOAL_TEXT = Column(String(255), nullable=False)
-    DISPLAY_ORDER = Column(INTEGER(11), nullable=True)
-    CACHED_PLAN_ID = Column(String(36), nullable=True)
-
-
-class SS_USER_PLANS(Base):
-    __tablename__ = 'SS_USER_PLANS'
-    __table_args__ = {'comment': 'AI 마스터 플래너 사용자 계획 테이블'}
-
-    ID = Column(String(36), primary_key=True)
-    USER_ID = Column(String(36), nullable=False)
-    PLAN_DATA = Column(LONGTEXT, nullable=False)  # JSON 데이터
-    BACKED_UP_AT = Column(TIMESTAMP, nullable=True, server_default=text("current_timestamp()"))
