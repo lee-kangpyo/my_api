@@ -63,6 +63,7 @@ def build_weekly_plan_messages(
     total_phases: int,
     daily_available_time: Optional[int],
     week_number: int,
+    deadline_date: Optional[str] = None,
     previous_week_summary: Optional[str] = None,
     completed_tasks_count: int = 0,
     skipped_tasks_count: int = 0,
@@ -78,6 +79,7 @@ def build_weekly_plan_messages(
         total_phases: 전체 Phase 수
         daily_available_time: 하루 사용 가능 시간(분)
         week_number: 이번이 몇 번째 주인지
+        deadline_date: 목표의 마감일 (None 가능)
         previous_week_summary: 지난 주 활동 요약 (None이면 첫 주)
         completed_tasks_count: 지난 주 완료한 태스크 수
         skipped_tasks_count: 지난 주 건너뛴 태스크 수
@@ -114,6 +116,7 @@ def build_weekly_plan_messages(
 Phase 설명: {phase_description}
 하루 가용 시간: {time_info}
 진행 주차: {week_number}주차
+마감일: {deadline_date if deadline_date else '없음'}
 {previous_context}
 
 이번 주에 집중할 3~7개의 구체적인 태스크를 생성해 주세요."""

@@ -111,6 +111,7 @@ def generate_weekly_plan(
         total_phases=total_phases,
         daily_available_time=daily_available_time,
         week_number=week_number,
+        deadline_date=str(goal.DEADLINE_DATE) if goal.DEADLINE_DATE else None,
         previous_week_summary=previous_week_summary,
         completed_tasks_count=completed_count,
         skipped_tasks_count=skipped_count,

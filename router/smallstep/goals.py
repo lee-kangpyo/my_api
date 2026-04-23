@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from database import get_smallstep_db
 from models import SMALLSTEP_GOALS
-from schemas.smallstep.goals import Goal, GoalCreate, GoalUpdate
+from schemas.smallstep.goals import Goal, GoalCreate, GoalStatusUpdate
 from services.ai.phase_generator import generate_phases
 from typing import List
 import logging
@@ -71,7 +71,7 @@ def create_goal(
         logger.error(f"Goal creation failed: {str(e)}")
         raise HTTPException(status_code=400, detail="목표 생성 중 오류가 발생했습니다.")
 
-@router.get("/goals/user/{user_id}", response_model=List[Goal],
+@router.get("/goals", response_model=List[Goal],
             summary="사용자의 목표 목록 조회")
 def get_user_goals(user_id: int, db: Session = Depends(get_smallstep_db)):
     """사용자의 목표 목록 조회"""
@@ -89,7 +89,7 @@ def get_goal(goal_id: int, db: Session = Depends(get_smallstep_db)):
 
 @router.put("/goals/{goal_id}/status", response_model=Goal,
             summary="목표 상태 업데이트")
-def update_goal_status(goal_id: int, goal_update: GoalUpdate, db: Session = Depends(get_smallstep_db)):
+def update_goal_status(goal_id: int, goal_update: GoalStatusUpdate, db: Session = Depends(get_smallstep_db)):
     """목표 상태 및 정보 업데이트"""
     db_goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.ID == goal_id).first()
     if not db_goal:

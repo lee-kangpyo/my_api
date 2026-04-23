@@ -33,8 +33,54 @@ class WeeklySchedulerService:
 
     def check_phase_completion(self, phase_id: int) -> bool:
         """
-        현재 Phase가 완료 조건(예: 예상 주수 도달 및 주요 태스크 완료)을
-        충족했는지 검사 (MVP에서는 수동 전환 또는 단순 체크용)
+        현재 Phase가 완료 조건(모든 주간 계획의 태스크 완료)을
+        충족했는지 검사하고, 충족 시 다음 Phase를 활성화합니다.
         """
-        # MVP에서는 복잡한 자동 전환 로직 생략
+        from models import SMALLSTEP_PHASES
+        
+        phase = self.db.query(SMALLSTEP_PHASES).filter(SMALLSTEP_PHASES.ID == phase_id).first()
+        if not phase or phase.STATUS == 'COMPLETED':
+            return False
+            
+        plans = self.db.query(SMALLSTEP_WEEKLY_PLANS).filter(SMALLSTEP_WEEKLY_PLANS.PHASE_ID == phase_id).all()
+        if not plans:
+            return False
+            
+        # 모든 주간 계획의 태스크 상태 검사
+        all_completed = True
+        for plan in plans:
+            tasks = self.db.query(SMALLSTEP_TASKS).filter(SMALLSTEP_TASKS.WEEKLY_PLAN_ID == plan.ID).all()
+            if not tasks:
+                all_completed = False
+                break
+            for task in tasks:
+                if task.STATUS not in ['COMPLETED', 'SKIPPED']:
+                    all_completed = False
+                    break
+            if not all_completed:
+                break
+                
+        if all_completed:
+            # 현재 Phase 완료 처리
+            phase.STATUS = 'COMPLETED'
+            phase.COMPLETED_AT = __import__('datetime').datetime.now()
+            
+            # 게이미피케이션 보너스 부여
+            from services.gamification import GamificationService
+            GamificationService(self.db).award_phase_completion_bonus(user_id=phase.goal.USER_ID, goal_id=phase.GOAL_ID)
+            
+            # 다음 Phase 활성화
+            next_phase = (
+                self.db.query(SMALLSTEP_PHASES)
+                .filter(SMALLSTEP_PHASES.GOAL_ID == phase.GOAL_ID, SMALLSTEP_PHASES.PHASE_ORDER > phase.PHASE_ORDER)
+                .order_by(SMALLSTEP_PHASES.PHASE_ORDER)
+                .first()
+            )
+            if next_phase:
+                next_phase.STATUS = 'ACTIVE'
+                
+            self.db.commit()
+            logger.info(f"Phase {phase_id} completed. Next phase activated if exists.")
+            return True
+            
         return False

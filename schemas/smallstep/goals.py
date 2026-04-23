@@ -23,7 +23,7 @@ class GoalBase(BaseModel):
 class GoalCreate(GoalBase):
     user_id: int
 
-class GoalUpdate(BaseModel):
+class GoalStatusUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     goal_text: Optional[str] = None
     goal_type: Optional[GoalType] = None
