@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import datetime
 
@@ -22,6 +22,7 @@ class UserUpdate(BaseModel):
     notification_time: Optional[str] = None
 
 class User(UserBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     level: int = 1
     experience_points: int = 0

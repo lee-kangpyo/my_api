@@ -5,9 +5,13 @@ from datetime import datetime
 class StatsOverview(BaseModel):
     total_goals: int
     completed_goals: int
+    completed_phases_count: int
     current_level: int
     experience_points: int
-    total_tasks_completed: int
+    xp_to_next_level: int
+    completed_tasks_count: int
+    current_streak: int
+    longest_streak: int
 
 class WeeklyStats(BaseModel):
     week_start_date: datetime
@@ -20,5 +24,7 @@ class WeeklyStats(BaseModel):
 class StreakInfo(BaseModel):
     current_streak: int
     longest_streak: int
+    streak_start_date: Optional[datetime] = None
     is_streak_active_today: bool
     last_activity_date: Optional[datetime] = None
+    streak_history: List[dict] = []  # List of {date: str, completed: bool}

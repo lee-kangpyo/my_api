@@ -8,11 +8,11 @@ class GoalType(str, Enum):
     ONGOING = 'ONGOING'
 
 class GoalStatus(str, Enum):
-    ACTIVE = 'ACTIVE'
-    MAINTAIN = 'MAINTAIN'
-    PAUSED = 'PAUSED'
-    COMPLETED = 'COMPLETED'
-    ARCHIVED = 'ARCHIVED'
+    ACTIVE = 'active'
+    MAINTAIN = 'maintain'
+    PAUSED = 'paused'
+    COMPLETED = 'completed'
+    ARCHIVED = 'archived'
 
 class GoalBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -23,7 +23,7 @@ class GoalBase(BaseModel):
 class GoalCreate(GoalBase):
     user_id: int
 
-class GoalStatusUpdate(BaseModel):
+class GoalUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     goal_text: Optional[str] = None
     goal_type: Optional[GoalType] = None

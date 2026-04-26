@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -31,3 +31,7 @@ class PhaseResponse(PhaseBase):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
+    weekly_plans: Optional[List[dict]] = None
+
+# Forward reference rebuild for Pydantic v2
+PhaseResponse.model_rebuild()

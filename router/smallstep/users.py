@@ -50,13 +50,27 @@ def create_user(user: UserCreate, db: Session = Depends(get_smallstep_db)):
     """새로운 사용자 생성"""
     try:
         db_user = SMALLSTEP_USERS(
-            NAME=user.name,
-            EMAIL=user.email
+            name=user.name,
+            email=user.email
         )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        return db_user
+        
+        return {
+            "id": db_user.id,
+            "name": db_user.name,
+            "email": db_user.email,
+            "level": db_user.level or 1,
+            "experience_points": db_user.experience_points or 0,
+            "current_streak": db_user.current_streak or 0,
+            "longest_streak": db_user.longest_streak or 0,
+            "daily_available_time": db_user.daily_available_time,
+            "notification_enabled": db_user.notification_enabled,
+            "notification_time": db_user.notification_time,
+            "created_at": db_user.created_at,
+            "updated_at": db_user.updated_at,
+        }
     except Exception as e:
         logger.error(f"User creation failed: {str(e)}")
         raise HTTPException(status_code=400, detail="사용자 생성 중 오류가 발생했습니다.")
@@ -89,7 +103,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_smallstep_db)):
 """)
 def get_user(user_id: int, db: Session = Depends(get_smallstep_db)):
     """사용자 정보 조회"""
-    user = db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.ID == user_id).first()
+    user = db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     return user
@@ -119,13 +133,13 @@ def get_user(user_id: int, db: Session = Depends(get_smallstep_db)):
 """)
 def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_smallstep_db)):
     """사용자 정보 업데이트"""
-    db_user = db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.ID == user_id).first()
+    db_user = db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     
     update_data = user_update.dict(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(db_user, field.upper(), value)
+        setattr(db_user, field, value)
     
     db.commit()
     db.refresh(db_user)

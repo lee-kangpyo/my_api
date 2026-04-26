@@ -18,8 +18,27 @@ router = APIRouter(
 @router.post("/weekly-plans/generate", response_model=WeeklyPlanResponse, status_code=status.HTTP_201_CREATED,
              summary="주간 계획 생성")
 def create_weekly_plan(goal_id: int, phase_id: int, db: Session = Depends(get_smallstep_db)):
-    """AI를 호출하여 현재 Phase에 대한 새로운 주간 계획을 생성합니다."""
+    """AI를 호출하여 현재 Phase에 대한 새로운 주간 계획을 생성합니다.
+    
+    새 주간 계획 생성 전, 이전 주간 계획의 미완료 태스크를 자동으로 SKIPPED 처리합니다.
+    """
     try:
+        # 이전 주간 계획의 미완료 태스크 처리 (주간 전환)
+        from services.weekly_scheduler import WeeklySchedulerService
+        scheduler = WeeklySchedulerService(db)
+        
+        last_plan = (
+            db.query(SMALLSTEP_WEEKLY_PLANS)
+            .filter(
+                SMALLSTEP_WEEKLY_PLANS.goal_id == goal_id,
+                SMALLSTEP_WEEKLY_PLANS.phase_id == phase_id
+            )
+            .order_by(SMALLSTEP_WEEKLY_PLANS.week_start_date.desc())
+            .first()
+        )
+        if last_plan:
+            scheduler.process_week_end(last_plan.id)
+        
         plan = generate_weekly_plan(goal_id=goal_id, phase_id=phase_id, db=db)
         return plan
     except ValueError as e:
@@ -34,8 +53,8 @@ def get_current_weekly_plan(goal_id: int, db: Session = Depends(get_smallstep_db
     """특정 목표의 현재(가장 최근) 주간 계획을 조회합니다."""
     plan = (
         db.query(SMALLSTEP_WEEKLY_PLANS)
-        .filter(SMALLSTEP_WEEKLY_PLANS.GOAL_ID == goal_id)
-        .order_by(SMALLSTEP_WEEKLY_PLANS.WEEK_START_DATE.desc())
+        .filter(SMALLSTEP_WEEKLY_PLANS.goal_id == goal_id)
+        .order_by(SMALLSTEP_WEEKLY_PLANS.week_start_date.desc())
         .first()
     )
     if not plan:
@@ -46,7 +65,7 @@ def get_current_weekly_plan(goal_id: int, db: Session = Depends(get_smallstep_db
             summary="특정 주간 계획 상세 조회")
 def get_weekly_plan(plan_id: int, db: Session = Depends(get_smallstep_db)):
     """특정 주간 계획을 조회합니다."""
-    plan = db.query(SMALLSTEP_WEEKLY_PLANS).filter(SMALLSTEP_WEEKLY_PLANS.ID == plan_id).first()
+    plan = db.query(SMALLSTEP_WEEKLY_PLANS).filter(SMALLSTEP_WEEKLY_PLANS.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="주간 계획을 찾을 수 없습니다.")
     return plan

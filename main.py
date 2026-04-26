@@ -15,8 +15,11 @@ from router.smallstep import smallstep
 load_dotenv()
 mode = os.getenv("MODE")
 
+VERSION = "2.0.0"
+
 app = FastAPI(
     title="API Server",
+    version=VERSION,
     description="""
 # 🚀 SmallStep & Lotto API 서버
 이 서버는 두 개의 앱을 지원합니다:
