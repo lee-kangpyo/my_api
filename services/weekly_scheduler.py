@@ -38,23 +38,23 @@ class WeeklySchedulerService:
         """
         from models import SMALLSTEP_PHASES
         
-        phase = self.db.query(SMALLSTEP_PHASES).filter(SMALLSTEP_PHASES.ID == phase_id).first()
-        if not phase or phase.STATUS == 'COMPLETED':
+        phase = self.db.query(SMALLSTEP_PHASES).filter(SMALLSTEP_PHASES.id == phase_id).first()
+        if not phase or phase.status == 'COMPLETED':
             return False
             
-        plans = self.db.query(SMALLSTEP_WEEKLY_PLANS).filter(SMALLSTEP_WEEKLY_PLANS.PHASE_ID == phase_id).all()
+        plans = self.db.query(SMALLSTEP_WEEKLY_PLANS).filter(SMALLSTEP_WEEKLY_PLANS.phase_id == phase_id).all()
         if not plans:
             return False
             
         # 모든 주간 계획의 태스크 상태 검사
         all_completed = True
         for plan in plans:
-            tasks = self.db.query(SMALLSTEP_TASKS).filter(SMALLSTEP_TASKS.WEEKLY_PLAN_ID == plan.ID).all()
+            tasks = self.db.query(SMALLSTEP_TASKS).filter(SMALLSTEP_TASKS.weekly_plan_id == plan.id).all()
             if not tasks:
                 all_completed = False
                 break
             for task in tasks:
-                if task.STATUS not in ['COMPLETED', 'SKIPPED']:
+                if task.status not in ['COMPLETED', 'SKIPPED']:
                     all_completed = False
                     break
             if not all_completed:
@@ -62,22 +62,22 @@ class WeeklySchedulerService:
                 
         if all_completed:
             # 현재 Phase 완료 처리
-            phase.STATUS = 'COMPLETED'
-            phase.COMPLETED_AT = __import__('datetime').datetime.now()
+            phase.status = 'COMPLETED'
+            phase.completed_at = __import__('datetime').datetime.now()
             
             # 게이미피케이션 보너스 부여
             from services.gamification import GamificationService
-            GamificationService(self.db).award_phase_completion_bonus(user_id=phase.goal.USER_ID, goal_id=phase.GOAL_ID)
+            GamificationService(self.db).award_phase_completion_bonus(user_id=phase.goal.user_id, goal_id=phase.goal_id)
             
             # 다음 Phase 활성화
             next_phase = (
                 self.db.query(SMALLSTEP_PHASES)
-                .filter(SMALLSTEP_PHASES.GOAL_ID == phase.GOAL_ID, SMALLSTEP_PHASES.PHASE_ORDER > phase.PHASE_ORDER)
-                .order_by(SMALLSTEP_PHASES.PHASE_ORDER)
+                .filter(SMALLSTEP_PHASES.goal_id == phase.goal_id, SMALLSTEP_PHASES.phase_order > phase.phase_order)
+                .order_by(SMALLSTEP_PHASES.phase_order)
                 .first()
             )
             if next_phase:
-                next_phase.STATUS = 'ACTIVE'
+                next_phase.status = 'ACTIVE'
                 
             self.db.commit()
             logger.info(f"Phase {phase_id} completed. Next phase activated if exists.")

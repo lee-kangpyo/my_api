@@ -41,18 +41,18 @@ def generate_weekly_plan(
         Exception: AI 호출 실패 시
     """
     # 목표 및 Phase 조회
-    goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.ID == goal_id).first()
+    goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.id == goal_id).first()
     if not goal:
         raise ValueError(f"목표를 찾을 수 없습니다: goal_id={goal_id}")
     
-    phase = db.query(SMALLSTEP_PHASES).filter(SMALLSTEP_PHASES.ID == phase_id).first()
+    phase = db.query(SMALLSTEP_PHASES).filter(SMALLSTEP_PHASES.id == phase_id).first()
     if not phase:
         raise ValueError(f"Phase를 찾을 수 없습니다: phase_id={phase_id}")
     
     # 연관 사용자 정보
     user = goal.smallstep_users
-    daily_available_time = user.DAILY_AVAILABLE_TIME if user else None
-    user_id = user.ID if user else None
+    daily_available_time = user.daily_available_time if user else None
+    user_id = user.id if user else None
     
     # 이번 주 날짜 범위 계산 (월~일)
     today = datetime.now()
@@ -67,8 +67,8 @@ def generate_weekly_plan(
     # 현재 Phase의 이전 주간 계획 조회 (컨텍스트용)
     existing_plans = (
         db.query(SMALLSTEP_WEEKLY_PLANS)
-        .filter(SMALLSTEP_WEEKLY_PLANS.PHASE_ID == phase_id)
-        .order_by(SMALLSTEP_WEEKLY_PLANS.WEEK_START_DATE)
+        .filter(SMALLSTEP_WEEKLY_PLANS.phase_id == phase_id)
+        .order_by(SMALLSTEP_WEEKLY_PLANS.week_start_date)
         .all()
     )
     week_number = len(existing_plans) + 1
@@ -82,11 +82,11 @@ def generate_weekly_plan(
         last_plan = existing_plans[-1]
         last_tasks = (
             db.query(SMALLSTEP_TASKS)
-            .filter(SMALLSTEP_TASKS.WEEKLY_PLAN_ID == last_plan.ID)
+            .filter(SMALLSTEP_TASKS.weekly_plan_id == last_plan.id)
             .all()
         )
-        completed_count = sum(1 for t in last_tasks if t.STATUS == 'COMPLETED')
-        skipped_count = sum(1 for t in last_tasks if t.STATUS == 'SKIPPED')
+        completed_count = sum(1 for t in last_tasks if t.status == 'COMPLETED')
+        skipped_count = sum(1 for t in last_tasks if t.status == 'SKIPPED')
         total = len(last_tasks)
         
         if total > 0:
@@ -96,7 +96,7 @@ def generate_weekly_plan(
     # 전체 Phase 수 조회
     total_phases = (
         db.query(SMALLSTEP_PHASES)
-        .filter(SMALLSTEP_PHASES.GOAL_ID == goal_id)
+        .filter(SMALLSTEP_PHASES.goal_id == goal_id)
         .count()
     )
     
@@ -104,14 +104,14 @@ def generate_weekly_plan(
     
     # 프롬프트 조립
     messages = build_weekly_plan_messages(
-        goal_text=goal.GOAL_TEXT,
-        phase_title=phase.PHASE_TITLE,
-        phase_description=phase.PHASE_DESCRIPTION or "",
-        phase_order=phase.PHASE_ORDER,
+        goal_text=goal.goal_text,
+        phase_title=phase.phase_title,
+        phase_description=phase.phase_description or "",
+        phase_order=phase.phase_order,
         total_phases=total_phases,
         daily_available_time=daily_available_time,
         week_number=week_number,
-        deadline_date=str(goal.DEADLINE_DATE) if goal.DEADLINE_DATE else None,
+        deadline_date=str(goal.deadline_date) if goal.deadline_date else None,
         previous_week_summary=previous_week_summary,
         completed_tasks_count=completed_count,
         skipped_tasks_count=skipped_count,
@@ -139,12 +139,12 @@ def generate_weekly_plan(
     
     # 주간 계획 DB 저장
     db_weekly_plan = SMALLSTEP_WEEKLY_PLANS(
-        GOAL_ID=goal_id,
-        PHASE_ID=phase_id,
-        WEEK_START_DATE=week_start,
-        WEEK_END_DATE=week_end,
-        AI_CONTEXT=ai_context,
-        AI_RESPONSE=ai_response_data,
+        goal_id=goal_id,
+        phase_id=phase_id,
+        week_start_date=week_start,
+        week_end_date=week_end,
+        ai_context=ai_context,
+        ai_response=ai_response_data,
     )
     db.add(db_weekly_plan)
     db.flush()  # ID 확보
@@ -152,13 +152,13 @@ def generate_weekly_plan(
     # 태스크 DB 저장
     for i, task_item in enumerate(ai_response.tasks):
         db_task = SMALLSTEP_TASKS(
-            WEEKLY_PLAN_ID=db_weekly_plan.ID,
-            GOAL_ID=goal_id,
-            TASK_ORDER=task_item.task_order,
-            TASK_TITLE=task_item.task_title,
-            TASK_DESCRIPTION=task_item.task_description,
-            ESTIMATED_MINUTES=task_item.estimated_minutes,
-            STATUS='LOCKED',
+            weekly_plan_id=db_weekly_plan.id,
+            goal_id=goal_id,
+            task_order=task_item.task_order,
+            task_title=task_item.task_title,
+            task_description=task_item.task_description,
+            estimated_minutes=task_item.estimated_minutes,
+            status='LOCKED',
         )
         db.add(db_task)
     
@@ -167,15 +167,15 @@ def generate_weekly_plan(
     # 첫 번째 태스크를 AVAILABLE로 설정
     first_task = (
         db.query(SMALLSTEP_TASKS)
-        .filter(SMALLSTEP_TASKS.WEEKLY_PLAN_ID == db_weekly_plan.ID)
-        .order_by(SMALLSTEP_TASKS.TASK_ORDER)
+        .filter(SMALLSTEP_TASKS.weekly_plan_id == db_weekly_plan.id)
+        .order_by(SMALLSTEP_TASKS.task_order)
         .first()
     )
     if first_task:
-        first_task.STATUS = 'AVAILABLE'
+        first_task.status = 'AVAILABLE'
     
     db.commit()
     db.refresh(db_weekly_plan)
     
-    logger.info(f"주간 계획 DB 저장 완료 - weekly_plan_id={db_weekly_plan.ID}")
+    logger.info(f"주간 계획 DB 저장 완료 - weekly_plan_id={db_weekly_plan.id}")
     return db_weekly_plan

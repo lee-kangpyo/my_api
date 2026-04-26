@@ -30,7 +30,7 @@ class GamificationService:
 
     def award_task_completion_xp(self, user_id: int, task_id: int, goal_id: int) -> int:
         """태스크 완료 시 XP 부여 및 로그 기록"""
-        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.ID == user_id).first()
+        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.id == user_id).first()
         if not user:
             return 0
             
@@ -41,10 +41,10 @@ class GamificationService:
         xp_earned += streak_bonus
         
         # XP 업데이트 및 레벨 계산
-        current_xp = user.EXPERIENCE_POINTS or 0
+        current_xp = user.experience_points or 0
         new_xp = current_xp + xp_earned
-        user.EXPERIENCE_POINTS = new_xp
-        user.LEVEL = self._calculate_level(new_xp)
+        user.experience_points = new_xp
+        user.level = self._calculate_level(new_xp)
         
         # 로그 기록
         self._log_activity(user_id, task_id, goal_id, 'COMPLETED', xp_earned)
@@ -54,19 +54,19 @@ class GamificationService:
 
     def award_weekly_completion_bonus(self, user_id: int, goal_id: int):
         """주간 모든 태스크 완료 보너스"""
-        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.ID == user_id).first()
+        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.id == user_id).first()
         if user:
-            user.EXPERIENCE_POINTS = (user.EXPERIENCE_POINTS or 0) + XP_REWARD_WEEKLY_ALL_COMPLETED
-            user.LEVEL = self._calculate_level(user.EXPERIENCE_POINTS)
+            user.experience_points = (user.experience_points or 0) + XP_REWARD_WEEKLY_ALL_COMPLETED
+            user.level = self._calculate_level(user.experience_points)
             self._log_activity(user_id, None, goal_id, 'WEEKLY_COMPLETED_BONUS', XP_REWARD_WEEKLY_ALL_COMPLETED)
             self.db.commit()
 
     def award_phase_completion_bonus(self, user_id: int, goal_id: int):
         """Phase 완료 보너스"""
-        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.ID == user_id).first()
+        user = self.db.query(SMALLSTEP_USERS).filter(SMALLSTEP_USERS.id == user_id).first()
         if user:
-            user.EXPERIENCE_POINTS = (user.EXPERIENCE_POINTS or 0) + XP_REWARD_PHASE_COMPLETED
-            user.LEVEL = self._calculate_level(user.EXPERIENCE_POINTS)
+            user.experience_points = (user.experience_points or 0) + XP_REWARD_PHASE_COMPLETED
+            user.level = self._calculate_level(user.experience_points)
             self._log_activity(user_id, None, goal_id, 'PHASE_COMPLETED_BONUS', XP_REWARD_PHASE_COMPLETED)
             self.db.commit()
 
@@ -80,9 +80,9 @@ class GamificationService:
         yesterday_start = datetime.combine(yesterday, datetime.min.time())
         
         today_logs = self.db.query(SMALLSTEP_ACTIVITY_LOG).filter(
-            SMALLSTEP_ACTIVITY_LOG.USER_ID == user.ID,
-            SMALLSTEP_ACTIVITY_LOG.ACTION == 'COMPLETED',
-            SMALLSTEP_ACTIVITY_LOG.CREATED_AT >= today_start
+            SMALLSTEP_ACTIVITY_LOG.user_id == user.id,
+            SMALLSTEP_ACTIVITY_LOG.action == 'COMPLETED',
+            SMALLSTEP_ACTIVITY_LOG.completed_at >= today_start
         ).count()
         
         if today_logs > 0:
@@ -90,23 +90,27 @@ class GamificationService:
             return 0
             
         yesterday_logs = self.db.query(SMALLSTEP_ACTIVITY_LOG).filter(
-            SMALLSTEP_ACTIVITY_LOG.USER_ID == user.ID,
-            SMALLSTEP_ACTIVITY_LOG.ACTION == 'COMPLETED',
-            SMALLSTEP_ACTIVITY_LOG.CREATED_AT >= yesterday_start,
-            SMALLSTEP_ACTIVITY_LOG.CREATED_AT < today_start
+            SMALLSTEP_ACTIVITY_LOG.user_id == user.id,
+            SMALLSTEP_ACTIVITY_LOG.action == 'COMPLETED',
+            SMALLSTEP_ACTIVITY_LOG.completed_at >= yesterday_start,
+            SMALLSTEP_ACTIVITY_LOG.completed_at < today_start
         ).count()
         
-        current_streak = user.CURRENT_STREAK or 0
-        longest_streak = user.LONGEST_STREAK or 0
+        current_streak = user.current_streak or 0
+        longest_streak = user.longest_streak or 0
         
         if yesterday_logs > 0:
             new_streak = current_streak + 1
         else:
-            new_streak = 1 # 연속이 끊겼으므로 1로 초기화
+            # 연속이 끊겼으므로 명시적으로 0으로 초기화
+            user.current_streak = 0
+            self.db.commit()
+            # 오늘 첫 활동이므로 새로운 연속 시작
+            new_streak = 1
             
-        user.CURRENT_STREAK = new_streak
+        user.current_streak = new_streak
         if new_streak > longest_streak:
-            user.LONGEST_STREAK = new_streak
+            user.longest_streak = new_streak
             
         # 연속 달성 보너스
         if new_streak == 3:
@@ -119,10 +123,10 @@ class GamificationService:
     def _log_activity(self, user_id: int, task_id: int, goal_id: int, action: str, xp_earned: int):
         """활동 로그 기록"""
         log = SMALLSTEP_ACTIVITY_LOG(
-            USER_ID=user_id,
-            TASK_ID=task_id,
-            GOAL_ID=goal_id,
-            ACTION=action,
-            XP_EARNED=xp_earned
+            user_id=user_id,
+            task_id=task_id,
+            goal_id=goal_id,
+            action=action,
+            xp_earned=xp_earned
         )
         self.db.add(log)

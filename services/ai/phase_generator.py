@@ -32,33 +32,36 @@ def generate_phases(
         Exception: AI 호출 실패 시
     """
     # 목표 조회
-    goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.ID == goal_id).first()
+    goal = db.query(SMALLSTEP_GOALS).filter(SMALLSTEP_GOALS.id == goal_id).first()
     if not goal:
         raise ValueError(f"목표를 찾을 수 없습니다: goal_id={goal_id}")
     
     # 연관된 사용자 정보 조회
     user = goal.smallstep_users
-    daily_available_time = user.DAILY_AVAILABLE_TIME if user else None
+    daily_available_time = user.daily_available_time if user else None
     
     # 마감일 포맷
-    deadline_str = goal.DEADLINE_DATE.isoformat() if goal.DEADLINE_DATE else None
+    deadline_str = goal.deadline_date.isoformat() if goal.deadline_date else None
     
-    logger.info(f"Phase 생성 시작 - goal_id={goal_id}, 목표: {goal.GOAL_TEXT[:30]}...")
+    logger.info(f"Phase 생성 시작 - goal_id={goal_id}, 목표: {goal.goal_text[:30]}...")
+    logger.info(f"AI 호출 시작 - 모델 및 프롬프트 준비 완료")
     
     # 프롬프트 조립
     messages = build_phase_generation_messages(
-        goal_text=goal.GOAL_TEXT,
-        goal_type=goal.GOAL_TYPE or "ONGOING",
+        goal_text=goal.goal_text,
+        goal_type=goal.goal_type or "ONGOING",
         deadline_date=deadline_str,
         daily_available_time=daily_available_time,
-        current_level=goal.CURRENT_LEVEL or 1,
+        current_level=goal.current_level or 1,
     )
     
     # AI 호출
+    logger.info(f"AI 호출 중... messages 길이: {len(messages)}")
     ai_response: PhaseGenerationResponse = call_ai(
         messages=messages,
         response_model=PhaseGenerationResponse,
     )
+    logger.info(f"AI 호출 완료")
     
     logger.info(f"Phase 생성 완료 - {len(ai_response.phases)}개 Phase 생성됨")
     
@@ -66,19 +69,19 @@ def generate_phases(
     created_phases = []
     for phase_item in ai_response.phases:
         db_phase = SMALLSTEP_PHASES(
-            GOAL_ID=goal_id,
-            PHASE_ORDER=phase_item.phase_order,
-            PHASE_TITLE=phase_item.phase_title,
-            PHASE_DESCRIPTION=phase_item.phase_description,
-            ESTIMATED_WEEKS=phase_item.estimated_weeks,
-            STATUS='PENDING',
+            goal_id=goal_id,
+            phase_order=phase_item.phase_order,
+            phase_title=phase_item.phase_title,
+            phase_description=phase_item.phase_description,
+            estimated_weeks=phase_item.estimated_weeks,
+            status='PENDING',
         )
         db.add(db_phase)
         created_phases.append(db_phase)
     
     # 첫 번째 Phase를 ACTIVE로 설정
     if created_phases:
-        created_phases[0].STATUS = 'ACTIVE'
+        created_phases[0].status = 'ACTIVE'
     
     db.commit()
     

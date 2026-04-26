@@ -18,16 +18,16 @@ class TaskStateMachine:
         태스크를 완료 처리하고 다음 태스크를 활성화
         LOCKED 상태나 이미 완료된 상태면 에러 발생
         """
-        task = self.db.query(SMALLSTEP_TASKS).filter(SMALLSTEP_TASKS.ID == task_id).first()
+        task = self.db.query(SMALLSTEP_TASKS).filter(SMALLSTEP_TASKS.id == task_id).first()
         if not task:
             raise ValueError(f"Task {task_id} not found")
             
-        if task.STATUS != 'AVAILABLE':
-            raise ValueError(f"Cannot complete task {task_id} with status {task.STATUS}")
+        if task.status != 'AVAILABLE':
+            raise ValueError(f"Cannot complete task {task_id} with status {task.status}")
 
         # 1. 상태 변경
-        task.STATUS = 'COMPLETED'
-        task.COMPLETED_AT = datetime.now()
+        task.status = 'COMPLETED'
+        task.completed_at = datetime.now()
 
         # 2. 다음 태스크 활성화
         self._activate_next_task(task)
@@ -44,15 +44,15 @@ class TaskStateMachine:
         tasks_to_skip = (
             self.db.query(SMALLSTEP_TASKS)
             .filter(
-                SMALLSTEP_TASKS.WEEKLY_PLAN_ID == weekly_plan_id,
-                SMALLSTEP_TASKS.STATUS.in_(['AVAILABLE', 'LOCKED'])
+                SMALLSTEP_TASKS.weekly_plan_id == weekly_plan_id,
+                SMALLSTEP_TASKS.status.in_(['AVAILABLE', 'LOCKED'])
             )
             .all()
         )
         
         count = 0
         for task in tasks_to_skip:
-            task.STATUS = 'SKIPPED'
+            task.status = 'SKIPPED'
             count += 1
             
         self.db.commit()
@@ -63,12 +63,12 @@ class TaskStateMachine:
         next_task = (
             self.db.query(SMALLSTEP_TASKS)
             .filter(
-                SMALLSTEP_TASKS.WEEKLY_PLAN_ID == current_task.WEEKLY_PLAN_ID,
-                SMALLSTEP_TASKS.TASK_ORDER > current_task.TASK_ORDER
+                SMALLSTEP_TASKS.weekly_plan_id == current_task.weekly_plan_id,
+                SMALLSTEP_TASKS.task_order > current_task.task_order
             )
-            .order_by(SMALLSTEP_TASKS.TASK_ORDER)
+            .order_by(SMALLSTEP_TASKS.task_order)
             .first()
         )
         
-        if next_task and next_task.STATUS == 'LOCKED':
-            next_task.STATUS = 'AVAILABLE'
+        if next_task and next_task.status == 'LOCKED':
+            next_task.status = 'AVAILABLE'
