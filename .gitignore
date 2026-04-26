@@ -18,6 +18,11 @@ env
 docs_build
 site_build
 venv
+.venv
+venv.bak
+.venv.bak
+requirements.txt
+requirements.txt.bak
 docs.zip
 archive.zip
 firebase-credentials.json

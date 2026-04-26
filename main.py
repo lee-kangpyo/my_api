@@ -70,7 +70,6 @@ app = FastAPI(
 - **OpenAPI JSON**: `/api/openapi.json`
 - **버전 정보**: `/api/version`
     """,
-    version="1.0.3",
     contact={
         "name": "AKMDZ",
         "email": "akmdz@naver.com"

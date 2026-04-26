@@ -1,0 +1,20 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "SmallStep & Lotto Backend"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "sqlalchemy",
+    "pydantic",
+    "alembic",
+    "instructor",
+    "litellm",
+    "python-dotenv",
+    "uvicorn",
+    "gunicorn",
+    "pymysql",
+    "python-multipart",
+    "email-validator>=2.3.0",
+]
